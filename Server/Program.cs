@@ -10,7 +10,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Регистрируем ProductRepository
+// Регистрируем IPuzzleRepository
 builder.Services.AddSingleton<IPuzzleRepository>(provider =>
 {
     // Создаем базу данных и передаем путь к ней

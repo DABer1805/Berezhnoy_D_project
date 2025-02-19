@@ -120,6 +120,26 @@ public class SQLitePuzzleRepository : IPuzzleRepository
         }
     }
 
+    // Метод для обновления записи из таблицы PlywoodSheets по названию
+    public void UpdatePlywoodSheet(PlywoodSheet plywoodSheet)
+    {
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+
+            string query = "UPDATE PlywoodSheets SET Title = @Title, Material = @Material, " +
+            "Thickness = @Thickness WHERE Title = @Title";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Title", plywoodSheet.Title);
+                command.Parameters.AddWithValue("@Material", plywoodSheet.Material);
+                command.Parameters.AddWithValue("@Thickness", plywoodSheet.Thickness);
+                command.ExecuteNonQuery();
+            }
+        }
+    }
+
     // Метод для получения всех записей из таблицы Puzzles
     public List<Puzzle> GetAllPuzzles()
     {
@@ -220,6 +240,27 @@ public class SQLitePuzzleRepository : IPuzzleRepository
             using (SQLiteCommand command = new SQLiteCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@Title", title);
+                command.ExecuteNonQuery();
+            }
+        }
+    }
+    
+    // Метод для обновления записи из таблицы Puzzles по названию
+    public void UpdatePuzzle(Puzzle puzzle)
+    {
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+
+            string query = "UPDATE Puzzles SET Title = @Title, SheetType = @SheetType, " +
+            "PieceCount = @PieceCount, Price = @Price WHERE Title = @Title";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Title", puzzle.Title);
+                command.Parameters.AddWithValue("@SheetType", puzzle.SheetType);
+                command.Parameters.AddWithValue("@PieceCount", puzzle.PieceCount);
+                command.Parameters.AddWithValue("@Price", puzzle.Price);
                 command.ExecuteNonQuery();
             }
         }

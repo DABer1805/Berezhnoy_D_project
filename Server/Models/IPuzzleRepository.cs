@@ -14,6 +14,9 @@ public interface IPuzzleRepository
     // Удаляет фанерный лист по его названию (title)
     void DeletePlywoodSheet(string title);
 
+    // Обновлят информацию о фанерном листе
+    void UpdatePlywoodSheet(PlywoodSheet plywoodSheet);
+
     // Методы для работы с пазлами (Puzzle)
 
     // Получает список всех пазлов
@@ -27,6 +30,9 @@ public interface IPuzzleRepository
 
     // Удаляет пазл из репозитория по ее названию (title)
     void DeletePuzzle(string title);
+
+    // Обновлят информацию о пазле
+    void UpdatePuzzle(Puzzle puzzle);
 
     // Методы для работы с прайс-листом
 

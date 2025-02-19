@@ -45,6 +45,15 @@ public class PuzzleController : ControllerBase
         return Ok(_puzzleRepository.GetAllPlywoodSheets());
     }
 
+    // Endpoint для обновления записи о листе фанеры по названию
+    [HttpPut("puzzle/sheet/update")]
+    public IActionResult UpdatePlywoodSheet([FromBody] PlywoodSheet plywoodSheet)
+    {
+        _puzzleRepository.UpdatePlywoodSheet(plywoodSheet);
+        return Ok(_puzzleRepository.GetAllPlywoodSheets());
+    }
+
+
     // Endpoint для получения всех записей о пазлах
     [HttpGet("puzzle/show")]
     public IActionResult ShowPuzzle()
@@ -87,6 +96,14 @@ public class PuzzleController : ControllerBase
         // Возвращает обновленный список всех пазлов
         return Ok(_puzzleRepository.GetAllPuzzles());
     }
+
+    [HttpPut("puzzle/update")]
+    public IActionResult Update([FromBody] Puzzle puzzle)
+    {
+        _puzzleRepository.UpdatePuzzle(puzzle);
+        return Ok(_puzzleRepository.GetAllPuzzles());
+    }
+
 
     // Endpoint для получения прайс-листа всех пазлов
     [HttpGet("puzzle/price-list")]
