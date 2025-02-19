@@ -25,6 +25,21 @@ public class PuzzleController : ControllerBase
         return Ok(_puzzleRepository.GetAllPlywoodSheets());
     }
 
+    // Endpoint для получения записи о листе фанеры по названию
+    [HttpGet("puzzle/sheet/show/{title}")]
+    public IActionResult ShowPlywoodSheetByName(string title)
+    {
+        // Получает лист фанеры по названию
+        var puzzle = _puzzleRepository.GetPlywoodSheetByTitle(title);
+        // Если лист фанеры не найден, возвращает статус 404 (Not Found)
+        if (puzzle == null)
+        {
+            return NotFound();
+        }
+        // Возвращает найденный лист фанеры
+        return Ok(puzzle);
+    }
+
     // Endpoint для добавления новой записи о листе фанеры
     [HttpPost("puzzle/sheet/add")]
     public IActionResult Add([FromBody] PlywoodSheet plywoodSheet)

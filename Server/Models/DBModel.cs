@@ -79,6 +79,37 @@ public class SQLitePuzzleRepository : IPuzzleRepository
         return plywoodSheets;
     }
 
+    // Метод для получения записи из таблицы PlywoodSheets по названию
+    public PlywoodSheet GetPlywoodSheetByTitle(string title)
+    {
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+
+            // SQL-запрос для поиска записи по названию
+            string query = "SELECT * FROM PlywoodSheets WHERE Title = @Title";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Title", title);
+
+                using (SQLiteDataReader reader = command.ExecuteReader())
+                {
+                    // Если запись найдена, возвращаем объект PlywoodSheet
+                    if (reader.Read())
+                    {
+                        return new PlywoodSheet(
+                            reader["Title"].ToString(),
+                            reader["Material"].ToString(),
+                            Convert.ToInt32(reader["Thickness"])
+                        );
+                    }
+                }
+            }
+        }
+        return null; // Если запись не найдена, возвращаем null
+    }
+
     // Метод для добавления новой записи в таблицу PlywoodSheets
     public void AddPlywoodSheet(PlywoodSheet plywoodSheet)
     {

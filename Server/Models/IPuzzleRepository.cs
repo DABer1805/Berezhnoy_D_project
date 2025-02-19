@@ -8,6 +8,9 @@ public interface IPuzzleRepository
     // Получает список всех фанерных листов
     List<PlywoodSheet> GetAllPlywoodSheets();
 
+    // Получает фанерный лист по его названию (title)
+    PlywoodSheet GetPlywoodSheetByTitle(string title);
+
     // Добавляет новый фанерный лист
     void AddPlywoodSheet(PlywoodSheet plywoodSheet);
 
