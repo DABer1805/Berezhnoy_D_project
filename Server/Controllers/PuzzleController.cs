@@ -168,4 +168,51 @@ public class PuzzleController : ControllerBase
         _puzzleRepository.DeleteOrder(id);
         return Ok(_puzzleRepository.GetAllOrders());
     }
+
+    // New Endpoints for Production Task
+    [HttpGet("production-task/show")]
+    public IActionResult GetAllProductionTasks()
+    {
+        return Ok(_puzzleRepository.GetAllProductionTasks());
+    }
+
+    [HttpGet("production-task/show/{id}")]
+    public IActionResult GetProductionTaskById(int id)
+    {
+        var task = _puzzleRepository.GetProductionTaskById(id);
+        if (task == null)
+        {
+            return NotFound();
+        }
+        return Ok(task);
+    }
+
+    [HttpPost("production-task/create-from-order/{orderId}")]
+    public IActionResult CreateProductionTaskFromOrder(int orderId)
+    {
+        try
+        {
+            var productionTask = _puzzleRepository.CreateProductionTaskFromOrder(orderId);
+            return CreatedAtAction(nameof(GetProductionTaskById), new { id = productionTask.Id }, productionTask);
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Internal server error: {ex.Message}");
+    }
+
+    [HttpPut("production-task/update")]
+    public IActionResult UpdateProductionTask([FromBody] ProductionTask task)
+    {
+        _puzzleRepository.UpdateProductionTask(task);
+        return Ok(_puzzleRepository.GetAllProductionTasks());
+    }
+
+    [HttpDelete("production-task/delete/{id}")]
+    public IActionResult DeleteProductionTask(int id)
+    {
+        _puzzleRepository.DeleteProductionTask(id);
+        return Ok(_puzzleRepository.GetAllProductionTasks());
+    }
 }

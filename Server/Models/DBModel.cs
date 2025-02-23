@@ -25,7 +25,7 @@ public class SQLitePuzzleRepository : IPuzzleRepository
         );
         CREATE TABLE IF NOT EXISTS Orders (
             Id INTEGER PRIMARY KEY AUTOINCREMENT,
-            Status TEXT NOT NULL, -- Changed to TEXT to store enum string values
+            Status TEXT NOT NULL,
             RegistrationDate DATETIME NOT NULL,
             Client TEXT NOT NULL,
             CompletionDate DATETIME NULL
@@ -37,6 +37,21 @@ public class SQLitePuzzleRepository : IPuzzleRepository
             Quantity INTEGER NOT NULL,
             Price DECIMAL NOT NULL,
             FOREIGN KEY (OrderId) REFERENCES Orders(Id)
+        );
+        CREATE TABLE IF NOT EXISTS ProductionTasks (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            Status TEXT NOT NULL,
+            RegistrationDate DATETIME NOT NULL,
+            CompletionDate DATETIME NULL,
+            OrderId INTEGER NOT NULL,
+            FOREIGN KEY (OrderId) REFERENCES Orders(Id)
+        );
+        CREATE TABLE IF NOT EXISTS ProductionTaskItems (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ProductionTaskId INTEGER NOT NULL,
+            Name TEXT NOT NULL,
+            Quantity INTEGER NOT NULL,
+            FOREIGN KEY (ProductionTaskId) REFERENCES ProductionTasks(Id)
     )";
 
     // Конструктор, принимающий строку подключения и создающий базу данных
@@ -532,5 +547,206 @@ public class SQLitePuzzleRepository : IPuzzleRepository
             }
         }
         return orderItems;
+    }
+
+    public List<ProductionTask> GetAllProductionTasks()
+    {
+        List<ProductionTask> tasks = new List<ProductionTask>();
+
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+            string query = "SELECT * FROM ProductionTasks";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                using (SQLiteDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        ProductionTask task = new ProductionTask
+                        {
+                            Id = Convert.ToInt32(reader["Id"]),
+                            Status = (ProductionTaskStatus)Enum.Parse(typeof(ProductionTaskStatus), reader["Status"].ToString()),
+                            RegistrationDate = DateTime.Parse(reader["RegistrationDate"].ToString()),
+                            CompletionDate = reader["CompletionDate"] != DBNull.Value ? DateTime.Parse(reader["CompletionDate"].ToString()) : null,
+                            OrderId = Convert.ToInt32(reader["OrderId"]),
+                            Items = GetProductionTaskItems(Convert.ToInt32(reader["Id"]))
+                        };
+                        tasks.Add(task);
+                    }
+                }
+            }
+        }
+        return tasks;
+    }
+
+    public ProductionTask GetProductionTaskById(int id)
+    {
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+            string query = "SELECT * FROM ProductionTasks WHERE Id = @Id";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Id", id);
+
+                using (SQLiteDataReader reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        ProductionTask task = new ProductionTask
+                        {
+                            Id = Convert.ToInt32(reader["Id"]),
+                            Status = (ProductionTaskStatus)Enum.Parse(typeof(ProductionTaskStatus), reader["Status"].ToString()),
+                            RegistrationDate = DateTime.Parse(reader["RegistrationDate"].ToString()),
+                            CompletionDate = reader["CompletionDate"] != DBNull.Value ? DateTime.Parse(reader["CompletionDate"].ToString()) : null,
+                            OrderId = Convert.ToInt32(reader["OrderId"]),
+                            Items = GetProductionTaskItems(Convert.ToInt32(reader["Id"]))
+                        };
+                        return task;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public ProductionTask CreateProductionTaskFromOrder(int orderId)
+    {
+        Order order = GetOrderById(orderId);
+        if (order == null)
+        {
+            throw new ArgumentException($"Order with id {orderId} not found.");
+        }
+
+        ProductionTask task = new ProductionTask
+        {
+            Status = ProductionTaskStatus.New,
+            RegistrationDate = DateTime.Now,
+            OrderId = orderId,
+            Items = order.Items.Select(item => new ProductionTaskItem { Name = item.Name, Quantity = item.Quantity }).ToList()
+        };
+
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+
+            string query = "INSERT INTO ProductionTasks (Status, RegistrationDate, CompletionDate, OrderId) " +
+                           $"VALUES ('{task.Status.ToString()}', @RegistrationDate, @CompletionDate, @OrderId); SELECT last_insert_rowid()";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@RegistrationDate", task.RegistrationDate);
+                command.Parameters.AddWithValue("@CompletionDate", task.CompletionDate.HasValue ? task.CompletionDate.Value : DBNull.Value);
+                command.Parameters.AddWithValue("@OrderId", task.OrderId);
+
+                long taskId = (long)command.ExecuteScalar();
+                task.Id = (int)taskId;
+
+                foreach (var item in task.Items)
+                {
+                    AddProductionTaskItem(connection, (int)taskId, item);
+                }
+            }
+        }
+        return task;
+    }
+
+    private void AddProductionTaskItem(SQLiteConnection connection, int taskId, ProductionTaskItem item)
+    {
+        string query = "INSERT INTO ProductionTaskItems (ProductionTaskId, Name, Quantity) " +
+                       "VALUES (@ProductionTaskId, @Name, @Quantity)";
+
+        using (SQLiteCommand command = new SQLiteCommand(query, connection))
+        {
+            command.Parameters.AddWithValue("@ProductionTaskId", taskId);
+            command.Parameters.AddWithValue("@Name", item.Name);
+            command.Parameters.AddWithValue("@Quantity", item.Quantity);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    public void UpdateProductionTask(ProductionTask task)
+    {
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+
+            string query = "UPDATE ProductionTasks SET Status = @Status, CompletionDate = @CompletionDate WHERE Id = @Id";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Id", task.Id);
+                command.Parameters.AddWithValue("@Status", task.Status.ToString());
+                command.Parameters.AddWithValue("@CompletionDate", task.CompletionDate.HasValue ? task.CompletionDate.Value : DBNull.Value);
+                command.ExecuteNonQuery();
+            }
+
+            string deleteItemsQuery = "DELETE FROM ProductionTaskItems WHERE ProductionTaskId = @ProductionTaskId";
+            using (SQLiteCommand deleteItemsCommand = new SQLiteCommand(deleteItemsQuery, connection))
+            {
+                deleteItemsCommand.Parameters.AddWithValue("@ProductionTaskId", task.Id);
+                deleteItemsCommand.ExecuteNonQuery();
+            }
+
+            foreach (var item in task.Items)
+            {
+                AddProductionTaskItem(connection, task.Id, item);
+            }
+        }
+    }
+
+    public void DeleteProductionTask(int id)
+    {
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+
+            string deleteItemsQuery = "DELETE FROM ProductionTaskItems WHERE ProductionTaskId = @ProductionTaskId";
+            using (SQLiteCommand deleteItemsCommand = new SQLiteCommand(deleteItemsQuery, connection))
+            {
+                deleteItemsCommand.Parameters.AddWithValue("@ProductionTaskId", id);
+                deleteItemsCommand.ExecuteNonQuery();
+            }
+
+            string deleteOrderQuery = "DELETE FROM ProductionTasks WHERE Id = @Id";
+            using (SQLiteCommand deleteOrderCommand = new SQLiteCommand(deleteOrderQuery, connection))
+            {
+                deleteOrderCommand.Parameters.AddWithValue("@Id", id);
+                deleteOrderCommand.ExecuteNonQuery();
+            }
+        }
+    }
+
+    private List<ProductionTaskItem> GetProductionTaskItems(int taskId)
+    {
+        List<ProductionTaskItem> items = new List<ProductionTaskItem>();
+
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+            string query = "SELECT * FROM ProductionTaskItems WHERE ProductionTaskId = @ProductionTaskId";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@ProductionTaskId", taskId);
+
+                using (SQLiteDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        ProductionTaskItem item = new ProductionTaskItem
+                        {
+                            Name = reader["Name"].ToString(),
+                            Quantity = Convert.ToInt32(reader["Quantity"])
+                        };
+                        items.Add(item);
+                    }
+                }
+            }
+        }
+        return items;
     }
 }

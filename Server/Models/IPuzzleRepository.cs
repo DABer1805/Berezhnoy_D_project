@@ -48,5 +48,11 @@ public interface IPuzzleRepository
     void AddOrder(Order order);
     void DeleteOrder(int id);
     void UpdateOrder(Order order);
+
+    List<ProductionTask> GetAllProductionTasks();
+    ProductionTask GetProductionTaskById(int id);
+    ProductionTask CreateProductionTaskFromOrder(int orderId);
+    void UpdateProductionTask(ProductionTask task);
+    void DeleteProductionTask(int id);
 }
 
