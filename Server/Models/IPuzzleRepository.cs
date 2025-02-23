@@ -54,5 +54,7 @@ public interface IPuzzleRepository
     ProductionTask CreateProductionTaskFromOrder(int orderId);
     void UpdateProductionTask(ProductionTask task);
     void DeleteProductionTask(int id);
+
+    List<SalesReportItem> GetSalesReport(DateTime startDate, DateTime endDate, string? productName = null);
 }
 

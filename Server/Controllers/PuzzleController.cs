@@ -194,12 +194,15 @@ public class PuzzleController : ControllerBase
         {
             var productionTask = _puzzleRepository.CreateProductionTaskFromOrder(orderId);
             return CreatedAtAction(nameof(GetProductionTaskById), new { id = productionTask.Id }, productionTask);
+        }
         catch (ArgumentException ex)
         {
             return NotFound(ex.Message);
+        }
         catch (Exception ex)
         {
             return StatusCode(500, $"Internal server error: {ex.Message}");
+        }
     }
 
     [HttpPut("production-task/update")]
@@ -214,5 +217,19 @@ public class PuzzleController : ControllerBase
     {
         _puzzleRepository.DeleteProductionTask(id);
         return Ok(_puzzleRepository.GetAllProductionTasks());
+    }
+
+    [HttpGet("sales-report")]
+    public IActionResult GetSalesReport(DateTime startDate, DateTime endDate, string? productName = null)
+    {
+        try
+        {
+            var report = _puzzleRepository.GetSalesReport(startDate, endDate, productName);
+            return Ok(report);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, "Internal server error");
+        }
     }
 }

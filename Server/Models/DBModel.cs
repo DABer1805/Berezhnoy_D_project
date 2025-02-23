@@ -749,4 +749,57 @@ public class SQLitePuzzleRepository : IPuzzleRepository
         }
         return items;
     }
+
+    public List<SalesReportItem> GetSalesReport(DateTime startDate, DateTime endDate, string? productName = null)
+    {
+        List<SalesReportItem> salesReport = new List<SalesReportItem>();
+
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+
+            string query = @"
+                SELECT 
+                    oi.Name AS ProductName,
+                    SUM(oi.Quantity) AS TotalQuantity,
+                    SUM(oi.Quantity * oi.Price) AS TotalAmount
+                FROM Orders o
+                JOIN OrderItems oi ON o.Id = oi.OrderId
+                WHERE o.RegistrationDate >= @StartDate AND o.RegistrationDate <= @EndDate
+            ";
+
+            if (!string.IsNullOrEmpty(productName))
+            {
+                query += " AND oi.Name = @ProductName";
+            }
+
+            query += " GROUP BY oi.Name";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@StartDate", startDate);
+                command.Parameters.AddWithValue("@EndDate", endDate);
+
+                if (!string.IsNullOrEmpty(productName))
+                {
+                    command.Parameters.AddWithValue("@ProductName", productName);
+                }
+
+                using (SQLiteDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        SalesReportItem item = new SalesReportItem
+                        {
+                            ProductName = reader["ProductName"].ToString(),
+                            TotalQuantity = Convert.ToInt32(reader["TotalQuantity"]),
+                            TotalAmount = Convert.ToDecimal(reader["TotalAmount"])
+                        };
+                        salesReport.Add(item);
+                    }
+                }
+            }
+        }
+        return salesReport;
+    }
 }
