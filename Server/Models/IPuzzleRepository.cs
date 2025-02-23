@@ -41,5 +41,12 @@ public interface IPuzzleRepository
 
     // Получает прайс-лист в виде списка словарей
     List<Dictionary<string, string>> GetPriceList();
+
+    // Методы для работы с заказами (Order)
+    List<Order> GetAllOrders();
+    Order GetOrderById(int id);
+    void AddOrder(Order order);
+    void DeleteOrder(int id);
+    void UpdateOrder(Order order);
 }
 

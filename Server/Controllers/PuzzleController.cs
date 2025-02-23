@@ -129,4 +129,43 @@ public class PuzzleController : ControllerBase
         // Возвращает прайс-лист
         return Ok(priceList);
     }
+
+
+    [HttpGet("order/show")]
+    public IActionResult GetAllOrders()
+    {
+        return Ok(_puzzleRepository.GetAllOrders());
+    }
+
+    [HttpGet("order/show/{id}")]
+    public IActionResult GetOrderById(int id)
+    {
+        var order = _puzzleRepository.GetOrderById(id);
+        if (order == null)
+        {
+            return NotFound();
+        }
+        return Ok(order);
+    }
+
+    [HttpPost("order/add")]
+    public IActionResult AddOrder([FromBody] Order order)
+    {
+        _puzzleRepository.AddOrder(order);
+        return Ok(_puzzleRepository.GetAllOrders());
+    }
+
+    [HttpPut("order/update")]
+    public IActionResult UpdateOrder([FromBody] Order order)
+    {
+        _puzzleRepository.UpdateOrder(order);
+        return Ok(_puzzleRepository.GetAllOrders());
+    }
+
+    [HttpDelete("order/delete/{id}")]
+    public IActionResult DeleteOrder(int id)
+    {
+        _puzzleRepository.DeleteOrder(id);
+        return Ok(_puzzleRepository.GetAllOrders());
+    }
 }

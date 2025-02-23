@@ -22,7 +22,22 @@ public class SQLitePuzzleRepository : IPuzzleRepository
             SheetType TEXT NOT NULL,
             PieceCount INTEGER NOT NULL,
             Price DECIMAL NOT NULL
-        )";
+        );
+        CREATE TABLE IF NOT EXISTS Orders (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            Status TEXT NOT NULL, -- Changed to TEXT to store enum string values
+            RegistrationDate DATETIME NOT NULL,
+            Client TEXT NOT NULL,
+            CompletionDate DATETIME NULL
+        );
+        CREATE TABLE IF NOT EXISTS OrderItems (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            OrderId INTEGER NOT NULL,
+            Name TEXT NOT NULL,
+            Quantity INTEGER NOT NULL,
+            Price DECIMAL NOT NULL,
+            FOREIGN KEY (OrderId) REFERENCES Orders(Id)
+    )";
 
     // Конструктор, принимающий строку подключения и создающий базу данных
     public SQLitePuzzleRepository(string connectionString)
@@ -325,5 +340,197 @@ public class SQLitePuzzleRepository : IPuzzleRepository
             }
         }
         return priceList;
+    }
+
+     // Методы для работы с заказами
+
+    public List<Order> GetAllOrders()
+    {
+        List<Order> orders = new List<Order>();
+
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+            string query = "SELECT * FROM Orders";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                using (SQLiteDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        Order order = new Order
+                        {
+                            Id = Convert.ToInt32(reader["Id"]),
+                            Status = (OrderStatus)Enum.Parse(typeof(OrderStatus), reader["Status"].ToString()), // Convert string to enum
+                            RegistrationDate = DateTime.Parse(reader["RegistrationDate"].ToString()),
+                            Client = reader["Client"].ToString(),
+                            CompletionDate = reader["CompletionDate"] != DBNull.Value ? DateTime.Parse(reader["CompletionDate"].ToString()) : null,
+                            Items = GetOrderItems(Convert.ToInt32(reader["Id"]))
+                        };
+                        orders.Add(order);
+                    }
+                }
+            }
+        }
+        return orders;
+    }
+
+    public Order GetOrderById(int id)
+    {
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+            string query = "SELECT * FROM Orders WHERE Id = @Id";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Id", id);
+
+                using (SQLiteDataReader reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        Order order = new Order
+                        {
+                            Id = Convert.ToInt32(reader["Id"]),
+                            Status = (OrderStatus)Enum.Parse(typeof(OrderStatus), reader["Status"].ToString()),
+                            RegistrationDate = DateTime.Parse(reader["RegistrationDate"].ToString()),
+                            Client = reader["Client"].ToString(),
+                            CompletionDate = reader["CompletionDate"] != DBNull.Value ? DateTime.Parse(reader["CompletionDate"].ToString()) : null,
+                            Items = GetOrderItems(Convert.ToInt32(reader["Id"]))
+                        };
+                        return order;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public void AddOrder(Order order)
+    {
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+
+            string query = "INSERT INTO Orders (Status, RegistrationDate, Client, CompletionDate) " +
+                           $"VALUES ('{order.Status.ToString()}', @RegistrationDate, @Client, @CompletionDate); SELECT last_insert_rowid()";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@RegistrationDate", order.RegistrationDate);
+                command.Parameters.AddWithValue("@Client", order.Client);
+                command.Parameters.AddWithValue("@CompletionDate", order.CompletionDate.HasValue ? order.CompletionDate.Value : DBNull.Value);
+
+                long orderId = (long)command.ExecuteScalar();
+
+                foreach (var item in order.Items)
+                {
+                    AddOrderItem(connection, (int)orderId, item);
+                }
+            }
+        }
+    }
+
+    private void AddOrderItem(SQLiteConnection connection, int orderId, OrderItem item)
+    {
+        string query = "INSERT INTO OrderItems (OrderId, Name, Quantity, Price) " +
+                       "VALUES (@OrderId, @Name, @Quantity, @Price)";
+
+        using (SQLiteCommand command = new SQLiteCommand(query, connection))
+        {
+            command.Parameters.AddWithValue("@OrderId", orderId);
+            command.Parameters.AddWithValue("@Name", item.Name);
+            command.Parameters.AddWithValue("@Quantity", item.Quantity);
+            command.Parameters.AddWithValue("@Price", item.Price);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    public void DeleteOrder(int id)
+    {
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+
+            string deleteItemsQuery = "DELETE FROM OrderItems WHERE OrderId = @OrderId";
+            using (SQLiteCommand deleteItemsCommand = new SQLiteCommand(deleteItemsQuery, connection))
+            {
+                deleteItemsCommand.Parameters.AddWithValue("@OrderId", id);
+                deleteItemsCommand.ExecuteNonQuery();
+            }
+
+            string deleteOrderQuery = "DELETE FROM Orders WHERE Id = @Id";
+            using (SQLiteCommand deleteOrderCommand = new SQLiteCommand(deleteOrderQuery, connection))
+            {
+                deleteOrderCommand.Parameters.AddWithValue("@Id", id);
+                deleteOrderCommand.ExecuteNonQuery();
+            }
+        }
+    }
+
+    public void UpdateOrder(Order order)
+    {
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+
+            string query = "UPDATE Orders SET Status = @Status, RegistrationDate = @RegistrationDate, " +
+                           "Client = @Client, CompletionDate = @CompletionDate WHERE Id = @Id";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Id", order.Id);
+                command.Parameters.AddWithValue("@Status", order.Status.ToString());
+                command.Parameters.AddWithValue("@RegistrationDate", order.RegistrationDate);
+                command.Parameters.AddWithValue("@Client", order.Client);
+                command.Parameters.AddWithValue("@CompletionDate", order.CompletionDate.HasValue ? order.CompletionDate.Value : DBNull.Value);
+                command.ExecuteNonQuery();
+            }
+
+            string deleteItemsQuery = "DELETE FROM OrderItems WHERE OrderId = @OrderId";
+            using (SQLiteCommand deleteItemsCommand = new SQLiteCommand(deleteItemsQuery, connection))
+            {
+                deleteItemsCommand.Parameters.AddWithValue("@OrderId", order.Id);
+                deleteItemsCommand.ExecuteNonQuery();
+            }
+
+            foreach (var item in order.Items)
+            {
+                AddOrderItem(connection, order.Id, item);
+            }
+        }
+    }
+
+    private List<OrderItem> GetOrderItems(int orderId)
+    {
+        List<OrderItem> orderItems = new List<OrderItem>();
+
+        using (SQLiteConnection connection = new SQLiteConnection(_connectionString))
+        {
+            connection.Open();
+            string query = "SELECT * FROM OrderItems WHERE OrderId = @OrderId";
+
+            using (SQLiteCommand command = new SQLiteCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@OrderId", orderId);
+
+                using (SQLiteDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        OrderItem item = new OrderItem
+                        {
+                            Name = reader["Name"].ToString(),
+                            Quantity = Convert.ToInt32(reader["Quantity"]),
+                            Price = Convert.ToDecimal(reader["Price"])
+                        };
+                        orderItems.Add(item);
+                    }
+                }
+            }
+        }
+        return orderItems;
     }
 }
